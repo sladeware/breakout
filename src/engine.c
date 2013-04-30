@@ -49,8 +49,8 @@ HUBDATA char ball_y_direction;
 HUBDATA uint16_t buttons_mask = 0;
 HUBDATA char wait_frame = FALSE;
 HUBDATA char wait_buttons = FALSE;
-HUBDATA char pause_game = TRUE;
-unsigned int start_time;
+HUBDATA char pause_game;
+HUBDATA unsigned int start_time;
 
 unsigned int
 time_ms()
@@ -63,7 +63,9 @@ reset()
 {
   struct bbos_message* msg;
   unsigned char i;
-  pause_game = TRUE;
+  pause_game = 1;
+  wait_frame = FALSE;
+  wait_buttons = FALSE;
   /* Drop ball position */
   ball_x = 6;
   ball_x_delta = -1;
@@ -142,7 +144,16 @@ move_ball()
   else {
     ball_y >>= 1;
   }
-  if (ball_x == 0) {
+  /* Does the ball touch the breaks? */
+  if ((ball_x < 3) && (frame[ball_x] & ball_y)) {
+    frame[ball_x] ^= ball_y; /* remove the break */
+    ball_x_delta *= -1;
+    ball_y_direction *= -1;
+  }
+  else if (ball_y == 0x80 || ball_y == 0x01) {
+    ball_y_direction *= -1;
+  }
+  else if (ball_x == 0) {
     ball_x_delta *= -1;
   }
   else if (ball_x == 6) {
@@ -153,16 +164,7 @@ move_ball()
       return;
     }
     ball_x_delta *= -1;
-    ball_y_direction *= -1;
-  }
-  /* Does the ball touch the breaks? */
-  else if ((ball_x < 3) && (frame[ball_x] & ball_y)) {
-    frame[ball_x] ^= ball_y; /* remove the break */
-    ball_x_delta *= -1;
-    ball_y_direction *= -1;
-  }
-  else if (ball_y == 0x80 || ball_y == 0x01) {
-    ball_y_direction *= -1;
+    //ball_y_direction *= -1;
   }
   frame[ball_x] |= ball_y;
 }
@@ -176,7 +178,7 @@ engine_runner()
     case PRESSED_BUTTONS:
       buttons_mask = *((uint16_t*)msg->payload);
       if (buttons_mask & (1 << PAUSE_BUTTON_PIN)) {
-        pause_game ^= TRUE;
+        pause_game ^= 1;
       }
       wait_buttons = 0;
       break;
